@@ -1,6 +1,6 @@
 import hashlib
 import math
-from typing import List
+from typing import List, Optional
 from app.embeddings.base import EmbeddingProvider
 from app.core.logging import logger
 
@@ -13,20 +13,32 @@ except ImportError:
 class DefaultEmbeddingProvider(EmbeddingProvider):
     """
     Configurable embedding provider.
-    Uses SentenceTransformer if available, or falls back to a deterministic feature vector generator.
+    Uses SentenceTransformer lazily when requested, or falls back to a deterministic feature vector generator.
     """
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2", dimension: int = 384):
         self.model_name = model_name
         self.dimension = dimension
         self._model = None
+        self._model_attempted = False
 
-        if SentenceTransformer is not None:
-            try:
-                logger.info(f"Initializing SentenceTransformer model: {model_name}")
-                self._model = SentenceTransformer(model_name)
-            except Exception as e:
-                logger.warning(f"Could not load SentenceTransformer model {model_name}: {e}. Falling back to hash-based vectorizer.")
+    def _get_model(self):
+        """Lazy-load SentenceTransformer model on demand to prevent high memory spikes during app startup."""
+        if not self._model_attempted:
+            self._model_attempted = True
+            if SentenceTransformer is not None:
+                try:
+                    import torch
+                    torch.set_num_threads(1)
+                    logger.info(f"Lazy loading SentenceTransformer model: {self.model_name}")
+                    self._model = SentenceTransformer(self.model_name)
+                except Exception as e:
+                    logger.warning(
+                        f"Could not load SentenceTransformer model {self.model_name}: {e}. "
+                        "Falling back to hash-based vectorizer."
+                    )
+                    self._model = None
+        return self._model
 
     def _fallback_embed(self, text: str) -> List[float]:
         """Generate a deterministic normalized vector based on character hash for testing/offline use."""
@@ -51,9 +63,10 @@ class DefaultEmbeddingProvider(EmbeddingProvider):
         if not texts:
             return []
 
-        if self._model is not None:
+        model = self._get_model()
+        if model is not None:
             try:
-                embeddings = self._model.encode(texts, convert_to_numpy=True)
+                embeddings = model.encode(texts, convert_to_numpy=True)
                 return embeddings.tolist()
             except Exception as e:
                 logger.error(f"Error embedding documents with SentenceTransformer: {e}")
@@ -61,9 +74,10 @@ class DefaultEmbeddingProvider(EmbeddingProvider):
         return [self._fallback_embed(t) for t in texts]
 
     def embed_query(self, text: str) -> List[float]:
-        if self._model is not None:
+        model = self._get_model()
+        if model is not None:
             try:
-                embedding = self._model.encode(text, convert_to_numpy=True)
+                embedding = model.encode(text, convert_to_numpy=True)
                 return embedding.tolist()
             except Exception as e:
                 logger.error(f"Error embedding query with SentenceTransformer: {e}")

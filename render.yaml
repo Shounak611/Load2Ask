@@ -9,6 +9,10 @@ services:
     envVars:
       - key: ENVIRONMENT
         value: production
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: MALLOC_TRIM_THRESHOLD_
+        value: "65536"
       - key: VECTOR_STORE_PROVIDER
         value: qdrant
       - key: QDRANT_COLLECTION
