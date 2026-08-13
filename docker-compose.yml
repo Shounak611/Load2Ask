@@ -19,16 +19,15 @@ services:
       timeout: 5s
       retries: 5
 
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: load2ask_chroma
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: load2ask_qdrant
     restart: always
-    environment:
-      - IS_PERSISTENT=TRUE
     ports:
-      - "8001:8000"
+      - "6333:6333"
+      - "6334:6334"
     volumes:
-      - chroma_data:/chroma/chroma
+      - qdrant_data:/qdrant/storage
 
   backend:
     build:
@@ -37,12 +36,15 @@ services:
     container_name: load2ask_backend
     restart: always
     environment:
+      - ENVIRONMENT=development
       - DATABASE_URL=postgresql://load2ask:load2ask_password@postgres:5432/load2ask_db
-      - VECTOR_DB_URL=http://chromadb:8000
-      - VECTOR_COLLECTION=load2ask_collection
+      - VECTOR_STORE_PROVIDER=qdrant
+      - QDRANT_URL=http://qdrant:6333
+      - QDRANT_COLLECTION=load2ask_documents
       - UPLOAD_DIRECTORY=/app/uploads
       - LLM_API_KEY=${LLM_API_KEY:-default_llm_key}
       - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-default_embedding_key}
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
     ports:
       - "8000:8000"
     volumes:
@@ -50,7 +52,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      chromadb:
+      qdrant:
         condition: service_started
 
   frontend:
@@ -66,4 +68,4 @@ services:
 
 volumes:
   postgres_data:
-  chroma_data:
+  qdrant_data:

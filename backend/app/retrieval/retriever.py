@@ -2,7 +2,8 @@ from typing import List, Tuple, Dict, Any, Optional
 from sqlalchemy.orm import Session
 
 from app.models.internal import DocumentChunk
-from app.vectorstore.chroma_store import ChromaVectorStore
+from app.vectorstore.base import VectorStore
+from app.vectorstore.factory import VectorStoreFactory
 from app.retrieval.bm25 import BM25Retriever
 from app.retrieval.query_analyzer import AnalyzedQuery
 from app.core.logging import logger
@@ -11,10 +12,11 @@ from app.core.logging import logger
 class HybridRetriever:
     """Combines Dense Vector Retrieval and BM25 Lexical Retrieval with metadata filtering."""
 
-    def __init__(self, db: Session, vector_store: Optional[ChromaVectorStore] = None):
+    def __init__(self, db: Session, vector_store: Optional[VectorStore] = None):
         self.db = db
-        self.vector_store = vector_store or ChromaVectorStore()
+        self.vector_store = vector_store or VectorStoreFactory.get_vector_store()
         self.bm25_retriever = BM25Retriever(db)
+
 
     def retrieve(
         self,

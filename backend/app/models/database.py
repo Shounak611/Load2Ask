@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 from sqlalchemy import (
-    Column, String, Integer, Text, DateTime, ForeignKey, JSON, Index, func
+    Column, String, Integer, Float, Text, DateTime, ForeignKey, JSON, Index, func
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.database.base import Base
@@ -106,3 +106,16 @@ class IngestionJobModel(Base):
 
     # Relationships
     document: Mapped["DocumentModel"] = relationship("DocumentModel", back_populates="ingestion_jobs")
+
+
+class RetrievalLogModel(Base):
+    __tablename__ = "retrieval_logs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    session_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True, index=True)
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    retrieved_chunks_count: Mapped[int] = mapped_column(Integer, default=0)
+    latency_ms: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    log_metadata: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+

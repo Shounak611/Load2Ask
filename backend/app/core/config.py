@@ -12,18 +12,31 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./load2ask.db"  # Fallback to SQLite if Postgres is not provided
 
     # Vector DB
+    VECTOR_STORE_PROVIDER: str = "qdrant"  # options: qdrant, chroma
     VECTOR_DB_URL: str = "./chroma_db"
     VECTOR_COLLECTION: str = "load2ask_collection"
 
-    # Uploads
-    UPLOAD_DIRECTORY: str = "./uploads"
+    # Qdrant Vector Store Configuration
+    QDRANT_URL: Optional[str] = None
+    QDRANT_API_KEY: Optional[str] = None
+    QDRANT_COLLECTION: str = "load2ask_documents"
 
-    # App Config
+    # Uploads & Storage Abstraction Configuration
+    UPLOAD_DIRECTORY: str = "./uploads"
+    STORAGE_PROVIDER: str = "local"  # options: local, s3, temp
+    S3_BUCKET_NAME: Optional[str] = None
+    S3_REGION: Optional[str] = "us-east-1"
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+
+    # App Config & CORS
     APP_NAME: str = "Load2Ask RAG Engine"
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
     HOST: str = "0.0.0.0"
     PORT: int = 8000
+    FRONTEND_URL: Optional[str] = "http://localhost:5173"
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173"
 
     # Chunking Config
     CHUNK_SIZE: int = 700
@@ -52,6 +65,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore"
     )
+
 
 
 settings = Settings()

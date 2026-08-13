@@ -38,10 +38,13 @@ test_temp.db
 
 # Environment & IDE
 .env
+.env.*
+!.env.example
 .idea/
 .vscode/
 *.swp
 *.swo
+
 
 # Antigravity & Brain
 .gemini/

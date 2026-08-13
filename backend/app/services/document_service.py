@@ -8,7 +8,8 @@ from app.services.storage_service import StorageService
 from app.ingestion.pipeline import IngestionPipeline
 from app.loaders.web_loader import validate_url_ssrf
 from app.loaders.factory import LoaderFactory
-from app.vectorstore.chroma_store import ChromaVectorStore
+from app.vectorstore.base import VectorStore
+from app.vectorstore.factory import VectorStoreFactory
 from app.core.errors import DocumentNotFoundError, InvalidFileError
 from app.core.logging import logger
 
@@ -20,7 +21,8 @@ class DocumentService:
         self.db = db
         self.storage_service = StorageService()
         self.ingestion_pipeline = IngestionPipeline(db=db)
-        self.vector_store = ChromaVectorStore()
+        self.vector_store = VectorStoreFactory.get_vector_store()
+
 
     def upload_single_file(self, file: UploadFile) -> Tuple[DocumentModel, IngestionJobModel]:
         """

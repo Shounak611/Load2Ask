@@ -1,4 +1,4 @@
-import { apiClient } from './client';
+import { apiClient, API_BASE_URL } from './client';
 import type { QueryResponsePayload, Citation, RetrievalDebugInfo } from '../types';
 
 
@@ -27,8 +27,9 @@ export const queryApi = {
   ) => {
     const controller = new AbortController();
 
-    fetch('/api/chat/stream', {
+    fetch(`${API_BASE_URL}/chat/stream`, {
       method: 'POST',
+
       headers: {
         'Content-Type': 'application/json',
       },

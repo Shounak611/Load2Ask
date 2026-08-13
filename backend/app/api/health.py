@@ -5,7 +5,8 @@ from sqlalchemy import text
 
 from app.database.session import get_db
 from app.schemas.health import HealthCheckResponse
-from app.vectorstore.chroma_store import ChromaVectorStore
+from app.vectorstore.factory import VectorStoreFactory
+from app.storage.factory import StorageFactory
 from app.core.config import settings
 from app.core.logging import logger
 
@@ -24,21 +25,16 @@ def health_check(db: Session = Depends(get_db)):
 
     vector_status = "ok"
     try:
-        vs = ChromaVectorStore()
-        vs.collection.count()
+        vs = VectorStoreFactory.get_vector_store()
+        # Ping vector store count or basic operation
+        if hasattr(vs, "count"):
+            vs.count()
     except Exception as e:
         logger.error(f"Vector store health check failed: {e}")
         vector_status = f"unhealthy: {str(e)}"
 
     config_status = "ok"
-    config_issues = []
-    if not os.path.exists(settings.UPLOAD_DIRECTORY):
-        config_issues.append(f"Upload directory '{settings.UPLOAD_DIRECTORY}' missing")
-
-    if config_issues:
-        config_status = f"warning: {', '.join(config_issues)}"
-
-    overall_status = "ok" if (db_status == "ok" and vector_status == "ok" and config_status == "ok") else "degraded"
+    overall_status = "ok" if (db_status == "ok" and vector_status == "ok") else "degraded"
 
     return HealthCheckResponse(
         status=overall_status,
@@ -48,8 +44,9 @@ def health_check(db: Session = Depends(get_db)):
         configuration=config_status,
         details={
             "environment": settings.ENVIRONMENT,
-            "vector_collection": settings.VECTOR_COLLECTION,
-            "upload_dir": settings.UPLOAD_DIRECTORY,
+            "vector_provider": settings.VECTOR_STORE_PROVIDER,
+            "vector_collection": settings.QDRANT_COLLECTION if settings.VECTOR_STORE_PROVIDER == "qdrant" else settings.VECTOR_COLLECTION,
+            "storage_provider": settings.STORAGE_PROVIDER,
             "chunk_size": settings.CHUNK_SIZE,
             "chunk_overlap": settings.CHUNK_OVERLAP,
             "retrieval_top_k": settings.RETRIEVAL_TOP_K,
@@ -58,3 +55,37 @@ def health_check(db: Session = Depends(get_db)):
         }
     )
 
+
+@router.get("/dependencies", status_code=status.HTTP_200_OK)
+def dependency_health_check(db: Session = Depends(get_db)):
+    """Deep dependency health check for production monitoring."""
+    db_healthy = True
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as e:
+        logger.error(f"Deep DB health check error: {e}")
+        db_healthy = False
+
+    vector_healthy = True
+    try:
+        vs = VectorStoreFactory.get_vector_store()
+        if hasattr(vs, "count"):
+            vs.count()
+    except Exception as e:
+        logger.error(f"Deep VectorStore health check error: {e}")
+        vector_healthy = False
+
+    llm_configured = bool(settings.LLM_API_KEY and settings.LLM_API_KEY != "default_llm_key")
+    embedding_configured = bool(settings.EMBEDDING_API_KEY or settings.EMBEDDING_PROVIDER != "mock")
+
+    is_all_healthy = db_healthy and vector_healthy and llm_configured
+
+    return {
+        "status": "healthy" if is_all_healthy else "degraded",
+        "database": "healthy" if db_healthy else "unhealthy",
+        "vector_store": "healthy" if vector_healthy else "unhealthy",
+        "llm_configuration": "configured" if llm_configured else "default_key",
+        "embedding_configuration": "configured" if embedding_configured else "default",
+        "storage_provider": settings.STORAGE_PROVIDER,
+        "environment": settings.ENVIRONMENT
+    }

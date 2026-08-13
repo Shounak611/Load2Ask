@@ -10,7 +10,8 @@ from app.models.internal import Document, DocumentChunk
 from app.loaders.factory import LoaderFactory
 from app.ingestion.normalizer import DocumentNormalizer
 from app.ingestion.chunker import ConfigurableChunker
-from app.vectorstore.chroma_store import ChromaVectorStore
+from app.vectorstore.base import VectorStore
+from app.vectorstore.factory import VectorStoreFactory
 from app.core.logging import logger
 from app.core.errors import Load2AskException
 
@@ -18,14 +19,15 @@ from app.core.errors import Load2AskException
 class IngestionPipeline:
     """
     Complete end-to-end multi-source ingestion pipeline:
-    Source -> Loader -> Normalization -> Chunking -> Metadata -> Embedding -> ChromaDB & SQL DB.
+    Source -> Loader -> Normalization -> Chunking -> Metadata -> Embedding -> VectorStore & SQL DB.
     """
 
-    def __init__(self, db: Session, vector_store: Optional[ChromaVectorStore] = None):
+    def __init__(self, db: Session, vector_store: Optional[VectorStore] = None):
         self.db = db
-        self.vector_store = vector_store or ChromaVectorStore()
+        self.vector_store = vector_store or VectorStoreFactory.get_vector_store()
         self.normalizer = DocumentNormalizer()
         self.chunker = ConfigurableChunker()
+
 
     def prepare_document_job(self, document_id: str) -> IngestionJobModel:
         """Create and record an initial pending IngestionJob in DB."""
