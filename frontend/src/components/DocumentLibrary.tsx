@@ -23,8 +23,10 @@ export const DocumentLibrary: React.FC<DocumentLibraryProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
-  const filteredDocs = documents.filter((doc) => {
-    const matchesSearch = doc.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  const safeDocs = Array.isArray(documents) ? documents : [];
+
+  const filteredDocs = safeDocs.filter((doc) => {
+    const matchesSearch = (doc.filename || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (doc.title && doc.title.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = statusFilter === 'ALL' || doc.status === statusFilter;
     return matchesSearch && matchesStatus;

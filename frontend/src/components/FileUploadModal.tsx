@@ -63,11 +63,14 @@ export const FileUploadModal: React.FC<FileUploadModalProps> = ({
       const result = await documentApi.uploadFiles(selectedFiles, (pct) => setProgress(pct));
       setIsUploading(false);
       setSelectedFiles([]);
-      if (result.successful_uploads.length > 0) {
-        onUploadSuccess(result.successful_uploads);
+      const successful = Array.isArray(result?.successful_uploads) ? result.successful_uploads : [];
+      const failed = Array.isArray(result?.failed_uploads) ? result.failed_uploads : [];
+
+      if (successful.length > 0) {
+        onUploadSuccess(successful);
         onClose();
-      } else if (result.failed_uploads.length > 0) {
-        setError(`Failed uploads: ${result.failed_uploads.map(f => f.error).join(', ')}`);
+      } else if (failed.length > 0) {
+        setError(`Failed uploads: ${failed.map(f => f?.error || 'Unknown error').join(', ')}`);
       }
     } catch (err: any) {
       setIsUploading(false);

@@ -61,7 +61,7 @@ export const RetrievalDebugPanel: React.FC<RetrievalDebugPanelProps> = ({
                   <span className="text-amber-400 font-mono">Resolved / Rewritten:</span>
                   <p className="text-amber-200 font-medium mt-0.5">{debugInfo.rewritten_query}</p>
                 </div>
-                {debugInfo.expanded_queries.length > 1 && (
+                {(Array.isArray(debugInfo.expanded_queries) && debugInfo.expanded_queries.length > 1) && (
                   <div className="pt-2 border-t border-slate-800/80">
                     <span className="text-purple-400 font-mono">Expanded Queries:</span>
                     <ul className="list-disc list-inside text-slate-300 mt-1 space-y-0.5">
@@ -83,22 +83,22 @@ export const RetrievalDebugPanel: React.FC<RetrievalDebugPanelProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center">
-                  <div className="text-xl font-bold text-indigo-400 font-mono">{debugInfo.retrieved_candidates_count}</div>
+                  <div className="text-xl font-bold text-indigo-400 font-mono">{debugInfo.retrieved_candidates_count || 0}</div>
                   <div className="text-[10px] text-slate-400 uppercase font-semibold mt-1">Hybrid Retrieved</div>
                 </div>
 
                 <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center">
-                  <div className="text-xl font-bold text-purple-400 font-mono">{debugInfo.reranked_candidates_count}</div>
+                  <div className="text-xl font-bold text-purple-400 font-mono">{debugInfo.reranked_candidates_count || 0}</div>
                   <div className="text-[10px] text-slate-400 uppercase font-semibold mt-1">Re-ranked Top-K</div>
                 </div>
 
                 <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center">
-                  <div className="text-xl font-bold text-emerald-400 font-mono">{debugInfo.selected_context_count}</div>
+                  <div className="text-xl font-bold text-emerald-400 font-mono">{debugInfo.selected_context_count || 0}</div>
                   <div className="text-[10px] text-slate-400 uppercase font-semibold mt-1">Selected Chunks</div>
                 </div>
 
                 <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl text-center">
-                  <div className="text-xl font-bold text-amber-400 font-mono">{debugInfo.context_token_count.toLocaleString()}</div>
+                  <div className="text-xl font-bold text-amber-400 font-mono">{(debugInfo.context_token_count || 0).toLocaleString()}</div>
                   <div className="text-[10px] text-slate-400 uppercase font-semibold mt-1">Context Tokens</div>
                 </div>
               </div>
@@ -114,12 +114,12 @@ export const RetrievalDebugPanel: React.FC<RetrievalDebugPanelProps> = ({
               <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2 text-xs">
                 <div>
                   <span className="text-slate-500">Query Intent:</span>
-                  <span className="ml-2 font-mono uppercase text-indigo-300 font-semibold">{debugInfo.intent}</span>
+                  <span className="ml-2 font-mono uppercase text-indigo-300 font-semibold">{debugInfo.intent || 'GENERAL'}</span>
                 </div>
                 <div>
                   <span className="text-slate-500">Extracted Keywords:</span>
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
-                    {debugInfo.extracted_keywords.map((kw, idx) => (
+                    {(Array.isArray(debugInfo.extracted_keywords) ? debugInfo.extracted_keywords : []).map((kw, idx) => (
                       <span key={idx} className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded font-mono text-[10px]">
                         {kw}
                       </span>

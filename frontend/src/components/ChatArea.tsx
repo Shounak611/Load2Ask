@@ -30,9 +30,11 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   }, [messages, isLoading]);
 
+  const safeMessages = Array.isArray(messages) ? messages : [];
+
   return (
     <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6">
-      {messages.length === 0 ? (
+      {safeMessages.length === 0 ? (
         <div className="max-w-2xl mx-auto my-12 text-center space-y-6 animate-fadeIn">
           <div className="inline-flex p-4 bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 rounded-3xl border border-indigo-500/30">
             <Sparkles className="w-10 h-10 text-indigo-400" />
@@ -63,8 +65,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           </div>
         </div>
       ) : (
-        messages.map((msg) => {
+        safeMessages.map((msg) => {
           const isUser = msg.role === 'user';
+          const safeSources = Array.isArray(msg.sources) ? msg.sources : [];
           return (
             <div
               key={msg.id}
@@ -107,15 +110,15 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 </div>
 
                 {/* Sources / Citation Tags for Assistant */}
-                {!isUser && msg.sources && msg.sources.length > 0 && (
+                {!isUser && safeSources.length > 0 && (
                   <div className="mt-2 pt-2 border-t border-slate-800/80 w-full">
                     <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold mb-2">
                       <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Retrieved Sources ({msg.sources.length}):</span>
+                      <span>Retrieved Sources ({safeSources.length}):</span>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      {msg.sources.map((citation, idx) => (
+                      {safeSources.map((citation, idx) => (
                         <button
                           key={idx}
                           onClick={() => onSelectCitation(citation)}

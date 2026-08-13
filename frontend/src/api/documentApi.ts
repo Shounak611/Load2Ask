@@ -5,8 +5,14 @@ import type { DocumentItem, IngestJobStatus } from '../types';
 
 export const documentApi = {
   getDocuments: async (): Promise<DocumentItem[]> => {
-    const response = await apiClient.get<DocumentItem[]>('/documents');
-    return response.data;
+    const response = await apiClient.get<any>('/documents');
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    if (response.data && Array.isArray(response.data.documents)) {
+      return response.data.documents;
+    }
+    return [];
   },
 
   deleteDocument: async (id: string): Promise<void> => {
@@ -25,7 +31,7 @@ export const documentApi = {
     const formData = new FormData();
     files.forEach((file) => formData.append('files', file));
 
-    const response = await apiClient.post('/documents/upload', formData, {
+    const response = await apiClient.post<any>('/documents/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -36,11 +42,17 @@ export const documentApi = {
         }
       },
     });
-    return response.data;
+    return {
+      successful_uploads: Array.isArray(response.data?.successful_uploads) ? response.data.successful_uploads : [],
+      failed_uploads: Array.isArray(response.data?.failed_uploads) ? response.data.failed_uploads : [],
+    };
   },
 
   ingestUrl: async (url: string, title?: string): Promise<DocumentItem> => {
-    const response = await apiClient.post<DocumentItem>('/documents/url', { url, title });
+    const response = await apiClient.post<any>('/documents/url', { url, title });
+    if (response.data && response.data.document) {
+      return response.data.document;
+    }
     return response.data;
   },
 };

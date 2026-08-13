@@ -54,30 +54,34 @@ export function App() {
   const loadDocuments = async () => {
     try {
       const docs = await documentApi.getDocuments();
-      setDocuments(docs);
+      setDocuments(Array.isArray(docs) ? docs : []);
     } catch (err: any) {
       console.error('Failed to load documents:', err);
+      setDocuments([]);
     }
   };
 
   const loadSessions = async () => {
     try {
       const sessList = await sessionApi.getSessions();
-      setSessions(sessList);
-      if (sessList.length > 0 && !currentSessionId) {
-        setCurrentSessionId(sessList[0].id);
+      const safeSessList = Array.isArray(sessList) ? sessList : [];
+      setSessions(safeSessList);
+      if (safeSessList.length > 0 && !currentSessionId) {
+        setCurrentSessionId(safeSessList[0].id);
       }
     } catch (err: any) {
       console.error('Failed to load sessions:', err);
+      setSessions([]);
     }
   };
 
   const loadSessionMessages = async (sessionId: string) => {
     try {
       const msgs = await sessionApi.getSessionMessages(sessionId);
-      setMessages(msgs);
+      setMessages(Array.isArray(msgs) ? msgs : []);
     } catch (err: any) {
       console.error('Failed to load messages:', err);
+      setMessages([]);
     }
   };
 
@@ -92,7 +96,7 @@ export function App() {
     e.stopPropagation();
     try {
       await sessionApi.deleteSession(id);
-      setSessions((prev) => prev.filter((s) => s.id !== id));
+      setSessions((prev) => (Array.isArray(prev) ? prev.filter((s) => s.id !== id) : []));
       if (currentSessionId === id) {
         handleNewChat();
       }
@@ -104,7 +108,7 @@ export function App() {
   const handleDeleteDocument = async (docId: string) => {
     try {
       await documentApi.deleteDocument(docId);
-      setDocuments((prev) => prev.filter((d) => d.id !== docId));
+      setDocuments((prev) => (Array.isArray(prev) ? prev.filter((d) => d.id !== docId) : []));
       if (selectedDoc?.id === docId) {
         setSelectedDoc(null);
       }

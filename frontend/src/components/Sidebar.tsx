@@ -97,7 +97,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           Chat Sessions
         </div>
 
-        {sessions.length === 0 ? (
+        {(!Array.isArray(sessions) || sessions.length === 0) ? (
           <div className="px-3 py-6 text-center text-xs text-slate-500">
             No past conversations yet
           </div>
