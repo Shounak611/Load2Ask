@@ -79,7 +79,7 @@ class ChromaVectorStore(VectorStore):
             raise VectorStoreError(f"Failed to add documents to vector store: {str(e)}")
 
     def similarity_search(
-        self, query: str, k: int = 4, filter: Optional[Dict[str, Any]] = None
+        self, query: str, k: int = 4, filter: Optional[Dict[str, Any]] = None, filter_doc_id: Optional[str] = None
     ) -> List[DocumentChunk]:
         try:
             query_embedding = self.embedding_provider.embed_query(query)
@@ -87,10 +87,15 @@ class ChromaVectorStore(VectorStore):
                 "query_embeddings": [query_embedding],
                 "n_results": k,
             }
-            if filter:
-                kwargs["where"] = filter
+            where_filter = dict(filter or {})
+            if filter_doc_id:
+                where_filter["document_id"] = filter_doc_id
+
+            if where_filter:
+                kwargs["where"] = where_filter
 
             results = self.collection.query(**kwargs)
+
 
             chunks: List[DocumentChunk] = []
             if results and results.get("ids") and results["ids"][0]:

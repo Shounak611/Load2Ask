@@ -1,14 +1,28 @@
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Generator, Optional
 
 
 class BaseLLMProvider(ABC):
-    """Abstract interface for LLM completion / chat generation."""
+    """Abstract base interface for LLM Providers."""
 
     @abstractmethod
-    def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    def generate(
+        self,
+        prompt: str,
+        system_instruction: Optional[str] = None,
+        temperature: float = 0.2,
+        max_tokens: int = 1024,
+    ) -> str:
+        """Synchronously generate response from LLM."""
         pass
 
     @abstractmethod
-    def chat(self, messages: List[Dict[str, str]]) -> str:
+    def stream(
+        self,
+        prompt: str,
+        system_instruction: Optional[str] = None,
+        temperature: float = 0.2,
+        max_tokens: int = 1024,
+    ) -> Generator[str, None, None]:
+        """Stream response tokens from LLM."""
         pass

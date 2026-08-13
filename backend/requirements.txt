@@ -18,4 +18,8 @@ openpyxl>=3.1.2
 pillow>=10.2.0
 pytesseract>=0.3.10
 pandas>=2.2.0
+rank-bm25>=0.2.2
+tiktoken>=0.6.0
+google-generativeai>=0.4.0
+
 

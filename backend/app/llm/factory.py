@@ -1,9 +1,11 @@
 from app.llm.base import BaseLLMProvider
+from app.llm.default_llm import DefaultLLMProvider
+from app.core.config import settings
 
 
 class LLMFactory:
-    """Factory stub for LLM providers (OpenAI, Gemini, Ollama, etc.). Fully implemented in Part 3."""
+    """Factory for instantiating LLM Provider instances."""
 
     @staticmethod
-    def get_llm_provider(provider_type: str = "openai") -> BaseLLMProvider:
-        raise NotImplementedError("LLM providers will be implemented in subsequent parts.")
+    def get_llm(provider_name: str = "default") -> BaseLLMProvider:
+        return DefaultLLMProvider()
