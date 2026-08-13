@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: load2ask_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: load2ask
+      POSTGRES_PASSWORD: load2ask_password
+      POSTGRES_DB: load2ask_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U load2ask -d load2ask_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: load2ask_chroma
+    restart: always
+    environment:
+      - IS_PERSISTENT=TRUE
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: load2ask_backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://load2ask:load2ask_password@postgres:5432/load2ask_db
+      - VECTOR_DB_URL=http://chromadb:8000
+      - VECTOR_COLLECTION=load2ask_collection
+      - UPLOAD_DIRECTORY=/app/uploads
+      - LLM_API_KEY=${LLM_API_KEY:-default_llm_key}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-default_embedding_key}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_started
+
+volumes:
+  postgres_data:
+  chroma_data:
