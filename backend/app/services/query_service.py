@@ -145,3 +145,74 @@ class RAGQueryService:
             "sources": citations,
             "retrieval_debug": debug_info
         }
+
+    def process_query_stream(
+        self,
+        query: str,
+        session_id: Optional[str] = None,
+        filter_doc_id: Optional[str] = None
+    ):
+        """Generator yielding SSE JSON payloads progressively."""
+        import json
+
+        session = self._get_or_create_session(session_id, title=query[:30])
+        history = self._get_history_messages(session.id)
+        analyzed_query: AnalyzedQuery = QueryAnalyzer.analyze(query, conversation_history=history)
+
+        raw_candidates = self.retriever.retrieve(analyzed_query=analyzed_query, top_k=25, filter_doc_id=filter_doc_id)
+        reranked_candidates = self.reranker.rerank(raw_candidates, analyzed_query=analyzed_query, top_k=10)
+        deduped_candidates = Deduplicator.deduplicate(reranked_candidates, similarity_threshold=0.82)
+        relevant_candidates = [(chunk, score) for chunk, score in deduped_candidates if score >= 0.15]
+
+        context_str, selected_chunks, citations, token_count = self.context_engine.build_context(
+            relevant_candidates,
+            token_budget=4000
+        )
+
+        debug_info = {
+            "original_query": analyzed_query.original_query,
+            "rewritten_query": analyzed_query.rewritten_query,
+            "expanded_queries": analyzed_query.expanded_queries,
+            "retrieved_candidates_count": len(raw_candidates),
+            "reranked_candidates_count": len(reranked_candidates),
+            "selected_context_count": len(selected_chunks),
+            "context_token_count": token_count,
+            "intent": analyzed_query.intent,
+            "extracted_keywords": analyzed_query.keywords,
+        }
+
+        # Yield metadata first
+        meta_payload = {
+            "type": "meta",
+            "session_id": session.id,
+            "query": query,
+            "rewritten_query": analyzed_query.rewritten_query,
+            "sources": citations,
+            "retrieval_debug": debug_info
+        }
+        yield f"data: {json.dumps(meta_payload)}\n\n"
+
+        full_response_text = ""
+        if not context_str.strip():
+            no_info_msg = "I could not find sufficient information in the provided sources to answer this reliably."
+            full_response_text = no_info_msg
+            yield f"data: {json.dumps({'type': 'token', 'token': no_info_msg})}\n\n"
+        else:
+            prompt = f"Retrieved Context:\n{context_str}\n\nUser Query: {analyzed_query.rewritten_query}"
+            for token in self.llm.stream(prompt=prompt, system_instruction=SYSTEM_RAG_INSTRUCTION, temperature=0.2):
+                full_response_text += token
+                yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+
+        # Save to DB
+        user_msg = ChatMessageModel(session_id=session.id, role="user", content=query)
+        assistant_msg = ChatMessageModel(
+            session_id=session.id,
+            role="assistant",
+            content=full_response_text,
+            msg_metadata={"sources": citations}
+        )
+        self.db.add_all([user_msg, assistant_msg])
+        self.db.commit()
+
+        yield "data: [DONE]\n\n"
+

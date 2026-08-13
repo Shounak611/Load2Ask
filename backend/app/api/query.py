@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -25,3 +26,21 @@ def process_rag_query(
         filter_doc_id=payload.document_id
     )
     return result
+
+
+@router.post("/query/stream")
+@router.post("/chat/stream")
+def process_rag_query_stream(
+    payload: QueryRequest,
+    db: Session = Depends(get_db)
+):
+    """Server-Sent Events (SSE) streaming RAG retrieval and progressive token generation."""
+    service = RAGQueryService(db)
+    return StreamingResponse(
+        service.process_query_stream(
+            query=payload.query,
+            session_id=payload.session_id,
+            filter_doc_id=payload.document_id
+        ),
+        media_type="text/event-stream"
+    )
