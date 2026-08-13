@@ -23,9 +23,13 @@ def process_rag_query(
     result = service.process_query(
         query=payload.query,
         session_id=payload.session_id,
-        filter_doc_id=payload.document_id
+        filter_doc_id=payload.document_id,
+        top_k=payload.top_k,
+        rerank_k=payload.rerank_k,
+        context_budget=payload.context_budget
     )
     return result
+
 
 
 @router.post("/query/stream")

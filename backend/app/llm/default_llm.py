@@ -65,23 +65,28 @@ class DefaultLLMProvider(BaseLLMProvider):
 
     def _grounded_fallback_generate(self, prompt: str) -> str:
         """Grounded fallback engine for offline testing or missing LLM API keys."""
-        if "Context:" not in prompt or "Content:" not in prompt:
+        if "Retrieved Context:" not in prompt and "Context:" not in prompt:
             return "I could not find sufficient information in the provided sources to answer this reliably."
 
         # Extract content lines from prompt context
         lines = prompt.splitlines()
         extracted_facts = []
-        current_source = "Source"
+        current_source = "Source 1"
 
         for line in lines:
-            if line.startswith("[SOURCE"):
+            if line.startswith("[SOURCE") or line.startswith("[Source"):
                 current_source = line.strip("[]")
-            elif line.strip() and not line.startswith("User Query:") and not line.startswith("Context:") and not line.startswith("SOURCE"):
-                if len(line.strip()) > 15 and not line.startswith("Content:"):
+            elif line.startswith("Content:"):
+                content_text = line.replace("Content:", "").strip()
+                if content_text:
+                    extracted_facts.append((current_source, content_text))
+            elif line.strip() and not line.startswith("User Query:") and not line.startswith("Retrieved Context:"):
+                if len(line.strip()) > 10 and "I could not find" not in line:
                     extracted_facts.append((current_source, line.strip()))
 
         if not extracted_facts:
             return "I could not find sufficient information in the provided sources to answer this reliably."
 
-        facts_text = "\n".join([f"- Based on {src}: {fact}" for src, fact in extracted_facts[:3]])
-        return f"Based on the ingested knowledge sources:\n\n{facts_text}"
+        facts_text = " ".join([fact for _, fact in extracted_facts[:3]])
+        return f"Based on the provided context: {facts_text}"
+

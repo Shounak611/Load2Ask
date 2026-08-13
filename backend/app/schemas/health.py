@@ -7,4 +7,6 @@ class HealthCheckResponse(BaseModel):
     version: str
     database: str
     vector_store: str
+    configuration: str
     details: Dict[str, Any]
+

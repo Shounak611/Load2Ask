@@ -51,47 +51,76 @@ class QueryAnalyzer:
     ) -> str:
         """
         Resolve follow-up questions using prior conversation context.
-        Example:
-          User: "What is TCP?"
-          Assistant: "TCP is Transmission Control Protocol..."
-          User: "What are its advantages?"
-          Resolved: "What are the advantages of TCP?"
+        Example flow:
+          1. "What is TCP?" -> TCP
+          2. "What are its advantages?" -> "What are the TCP advantages?"
+          3. "Compare that with UDP." -> "Compare TCP with UDP."
+          4. "Which one is faster?" -> "Which one of TCP and UDP is faster?"
         """
         if not conversation_history:
             return current_query
 
-        # Check for pronouns indicating follow-up: "it", "its", "they", "their", "this", "that", "these", "those"
+        # Check for pronouns or referential expressions
         pronoun_pattern = re.compile(r'\b(it|its|they|their|them|this|that|these|those)\b', re.IGNORECASE)
+        which_pattern = re.compile(r'\b(which one|which is|which|the former|the latter|both)\b', re.IGNORECASE)
 
-        if not pronoun_pattern.search(current_query):
+        has_pronoun = pronoun_pattern.search(current_query)
+        has_which = which_pattern.search(current_query)
+
+        if not has_pronoun and not has_which:
             return current_query
 
-        # Extract last user query and assistant response topic
-        last_user_msg = ""
-        last_assistant_msg = ""
-        for msg in reversed(conversation_history):
-            role = msg.get("role", "")
-            content = msg.get("content", "").strip()
-            if role == "user" and not last_user_msg:
-                last_user_msg = content
-            elif role in ("assistant", "system") and not last_assistant_msg:
-                last_assistant_msg = content
-            if last_user_msg and last_assistant_msg:
-                break
+        # Gather previous user queries to extract mentioned entities
+        user_queries = [
+            msg.get("content", "").strip()
+            for msg in conversation_history
+            if msg.get("role") == "user" and msg.get("content")
+        ]
 
-        if not last_user_msg:
+        if not user_queries:
             return current_query
 
-        # Identify key subject/entity from previous user query
-        subject_match = re.sub(r'^(what|how|why|where|when|who|is|are|tell me about|explain)\s+(is|are|the|a|an)?\s*', '', last_user_msg, flags=re.IGNORECASE)
-        subject = subject_match.rstrip('?').strip()
+        # Collect key entities from past user turns (capitalized terms, acronyms, or non-stop nouns)
+        past_entities = []
+        stopwords = {"what", "is", "are", "the", "a", "an", "of", "in", "on", "for", "to", "and", "or", "how", "why", "can", "tell", "me", "about", "compare", "with", "advantages", "disadvantages"}
 
-        if subject:
-            # Replace pronouns with explicit subject
-            resolved = pronoun_pattern.sub(f"the {subject}", current_query)
-            return resolved
+        for uq in user_queries:
+            # Match uppercase acronyms or words like TCP, UDP, RAG, etc.
+            acronyms = re.findall(r'\b[A-Z0-9]{2,}\b', uq)
+            for acr in acronyms:
+                if acr not in past_entities:
+                    past_entities.append(acr)
+            # Clean subject phrase
+            subj_clean = re.sub(r'^(what|how|why|where|when|who|is|are|tell me about|explain|compare)\s+(is|are|the|a|an)?\s*', '', uq, flags=re.IGNORECASE).strip('? .!')
+            if subj_clean and len(subj_clean) > 2 and subj_clean not in past_entities:
+                past_entities.append(subj_clean)
+            words = [w.strip('?') for w in subj_clean.split() if w.lower() not in stopwords and len(w) > 2]
+            for w in words:
+                if w not in past_entities and w.upper() not in past_entities:
+                    past_entities.append(w)
 
-        return current_query
+
+        if not past_entities:
+            return current_query
+
+        resolved = current_query
+
+        if has_pronoun:
+            # Replace pronouns with primary recent entity
+            primary_entity = past_entities[0]
+            resolved = pronoun_pattern.sub(primary_entity, resolved)
+
+        if has_which:
+            # Handle "Which one", "Which is", etc. using recent entity list (e.g. TCP and UDP)
+            if len(past_entities) >= 2:
+                entities_str = " and ".join(past_entities[:2])
+                resolved = re.sub(r'\bwhich one\b', f"which one of {entities_str}", resolved, flags=re.IGNORECASE)
+                resolved = re.sub(r'\bwhich is\b', f"which of {entities_str} is", resolved, flags=re.IGNORECASE)
+            elif len(past_entities) == 1:
+                resolved = re.sub(r'\bwhich one\b', f"which option for {past_entities[0]}", resolved, flags=re.IGNORECASE)
+
+        return resolved
+
 
     @classmethod
     def analyze(

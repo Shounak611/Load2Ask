@@ -6,6 +6,10 @@ class QueryRequest(BaseModel):
     query: str = Field(..., description="User question or prompt for RAG system")
     session_id: Optional[str] = Field(None, description="Optional chat session ID for conversational follow-ups")
     document_id: Optional[str] = Field(None, description="Optional document ID to restrict retrieval scope")
+    top_k: Optional[int] = Field(None, description="Configurable top-k candidate chunks for retrieval")
+    rerank_k: Optional[int] = Field(None, description="Configurable top-k candidate chunks for reranking")
+    context_budget: Optional[int] = Field(None, description="Configurable token limit for context engine")
+
 
 
 class CitationItem(BaseModel):

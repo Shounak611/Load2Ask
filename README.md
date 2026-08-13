@@ -1,119 +1,163 @@
-# Load2Ask: Multimodal RAG + Context Engineering Platform
+# Load2Ask — Production-Grade Multimodal RAG & Context Engineering Platform
 
-Load2Ask is a production-grade, modular Multimodal Retrieval-Augmented Generation (RAG) and Context Engineering platform backend.
+**Load2Ask** is a state-of-the-art, enterprise-ready Multimodal Retrieval-Augmented Generation (RAG) platform built with FastAPI, Python 3.10+, SQLite/PostgreSQL, ChromaDB vector store, and Google Gemini LLMs.
 
----
-
-## 🏗️ Architecture Overview
-
-The system is built with a modular, decoupled architecture rather than a simplistic pipeline wrapper:
-
-```
-backend/
-├── app/
-│   ├── api/          # FastAPI routers and REST endpoints (health, documents)
-│   ├── core/         # Settings configuration, logging, and centralized error handling
-│   ├── database/     # SQLAlchemy engine, session management, and DB initialization
-│   ├── models/       # Database ORM models & Internal data models (Document, Chunk)
-│   ├── schemas/      # Pydantic API schemas
-│   ├── loaders/      # Document Loader Registry (Factory, TXT, PDF, Image, Web, etc.)
-│   ├── embeddings/   # Abstract Embedding Provider & Default SentenceTransformer Provider
-│   ├── vectorstore/  # Abstract VectorStore Interface & ChromaDB Implementation
-│   ├── services/     # Core business domain services (Document management, storage)
-│   ├── ingestion/    # Document ingestion pipeline & job management
-│   ├── retrieval/    # Modular retrieval interface (Part 2+)
-│   ├── ranking/      # Reranking interface (Part 3+)
-│   ├── context/      # Context engineering interface (Part 4+)
-│   ├── llm/          # Abstract LLM Provider interface (Part 3+)
-│   └── main.py       # FastAPI application entrypoint
-├── tests/            # Pytest test suite
-├── Dockerfile        # Backend container configuration
-├── requirements.txt  # Python package dependencies
-frontend/             # Placeholder for React/Vite/TS frontend (Part 2+)
-scripts/              # Database migration and initialization scripts
-docker-compose.yml    # Compose file for Backend, PostgreSQL, and ChromaDB
-.env.example          # Environment variable template
-```
+Designed for reliability, security, observability, and sub-second retrieval performance, Load2Ask supports multi-document query processing, multi-turn conversational query resolution, hybrid retrieval (dense + lexical BM25), reciprocal rank fusion (RRF), cross-encoder re-ranking, lost-in-the-middle context reordering, and an automated evaluation framework.
 
 ---
 
-## 🚀 Quickstart Guide
+## Key Features & Architecture
 
-### 1. Environment Setup
-
-Copy `.env.example` to `.env`:
-```bash
-cp .env.example .env
+```
+[ Upload / URL ] → [ SSRF & Mime Guard ] → [ Multimodal Extractors ]
+                                                   ↓
+[ Citation Tracking ] ← [ LLM Generation ] ← [ Context Engine ]
+                                                   ↑
+                                      [ Hybrid Retrieval (Dense + BM25) ]
+                                                   ↑
+                                    [ Query Analyzer & Expansion ]
 ```
 
-### 2. Local Python Environment
+### Core Architecture Components
+1. **Multimodal Document Loaders**: Secure extraction for PDF, TXT, OCR Images (PNG/JPG/JPEG), Website URLs (with SSRF protection), DOCX, PPTX, CSV, XLSX, JSON, and Markdown.
+2. **Chunking & Storage**: Token-aware text chunking with configurable overlap, stored in ChromaDB (dense vectors) and SQL DB (PostgreSQL / SQLite metadata & job management).
+3. **Conversational Query Intelligence**: Multi-turn entity extraction resolving pronouns (*it, its, that*) and comparative expressions (*which one is faster*) using recent conversation history.
+4. **Hybrid Retrieval**: Dense vector similarity search combined with BM25 keyword matching via Reciprocal Rank Fusion (RRF) and metadata score boosting.
+5. **Cross-Encoder Re-ranking & Deduplication**: Secondary semantic re-ranking for top candidates followed by cosine/Jaccard similarity deduplication.
+6. **Context Engine & Token Budgeting**: Lost-in-the-middle context reordering (placing high-relevance chunks at context boundaries) and strict LLM token window budgeting.
+7. **Observability & Telemetry**: Structured JSON logging capturing step-by-step latencies, chunk counts, token usage, and automatic sensitive credential redaction.
+8. **Evaluation Framework**: Built-in benchmark evaluation suite tracking **Precision@K**, **Recall@K**, **MRR**, **Answer Relevance**, **Faithfulness**, and **Citation Correctness**.
 
-Create a virtual environment and install dependencies:
+---
+
+## Quick Start (Local Development)
+
+### 1. Prerequisites
+- Python 3.10+
+- Node.js 18+
+- Docker & Docker Compose (optional for containerized deployment)
+
+### 2. Environment Setup
+Create a `.env` file in the root directory:
+```env
+LLM_API_KEY=your_google_gemini_api_key
+EMBEDDING_API_KEY=your_embedding_api_key
+DATABASE_URL=sqlite:///./load2ask.db
+VECTOR_DB_URL=./chroma_db
+VECTOR_COLLECTION=load2ask_collection
+UPLOAD_DIRECTORY=./uploads
+CHUNK_SIZE=700
+CHUNK_OVERLAP=100
+MAX_FILE_SIZE_MB=50
+
+RETRIEVAL_TOP_K=25
+RERANK_TOP_K=10
+CONTEXT_TOKEN_LIMIT=4000
+DENSE_WEIGHT=0.6
+LEXICAL_WEIGHT=0.4
+RELEVANCE_THRESHOLD=0.15
+DEDUPLICATION_THRESHOLD=0.82
+```
+
+### 3. Install Dependencies & Initialize Database
 ```bash
+# Set up Python virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
-```
 
-### 3. Initialize Database
-
-Run the DB init script (supports PostgreSQL or fallback SQLite):
-```bash
-python scripts/init_db.py
-```
-
-### 4. Start Backend Server
-
-```bash
+# Run Alembic Database Migrations
 cd backend
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+alembic upgrade head
+cd ..
 ```
 
-Interactive API documentation will be accessible at:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+### 4. Run Backend Server
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --app-dir backend
+```
+
+### 5. Run Frontend Development Server
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Navigate to `http://localhost:5173` (or `http://localhost:3000` via Nginx).
 
 ---
 
-## 🐳 Docker Deployment
+## Deployment with Docker Compose
 
-To spin up the entire backend stack (PostgreSQL + ChromaDB + FastAPI backend):
+To deploy the entire production stack (Frontend, Backend, PostgreSQL, ChromaDB):
 
 ```bash
-docker-compose up --build -d
+# Build and start all services
+docker compose up --build -d
+
+# Check service health
+docker compose ps
 ```
 
-Services:
-- **FastAPI Backend**: `http://localhost:8000`
-- **PostgreSQL**: `localhost:5432`
-- **ChromaDB**: `http://localhost:8001`
+Service endpoints:
+- **Frontend App**: `http://localhost:3000`
+- **Backend API Docs**: `http://localhost:8000/docs`
+- **Health Check**: `http://localhost:8000/api/health`
 
 ---
 
-## 🧪 Running Tests
+## API Reference
 
-Execute the automated test suite with pytest:
+### Health Check
+- `GET /api/health`: Returns health status of Backend API, Database, Vector Store, and Configuration.
 
+### Document Management
+- `POST /api/documents/upload`: Upload file (PDF, TXT, Image, DOCX, PPTX, CSV, XLSX, JSON, MD).
+- `POST /api/documents/ingest-url`: Ingest external website URL (protected against SSRF).
+- `GET /api/documents`: List ingested documents.
+- `GET /api/documents/{id}/status`: Track document parsing and vector indexing status.
+- `DELETE /api/documents/{id}`: Cascade delete document, chunks, and vector embeddings.
+
+### RAG Query & Streaming
+- `POST /api/query`: Execute full RAG pipeline returning JSON response with citations and debug info.
+- `POST /api/query/stream`: Server-Sent Events (SSE) streaming RAG responses for real-time frontend token rendering.
+
+### Evaluation Framework
+- `POST /api/eval/run?top_k=25&rerank_k=10&context_budget=4000`: Run automated RAG evaluation over benchmark test dataset.
+
+Or via CLI:
 ```bash
-PYTHONPATH=backend .venv/bin/pytest backend/tests -v
+python scripts/run_eval.py --top-k 25 --rerank-k 10 --context-budget 4000
 ```
 
 ---
 
-## 📌 API Endpoints Summary (Part 1 Foundation)
+## Evaluation Metrics
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/health` | System health check (API, Database, Vector Store) |
-| `POST` | `/api/documents/upload` | Upload document, validate format, store file, create Document and IngestionJob records |
-| `GET` | `/api/documents` | List uploaded documents with pagination |
-| `GET` | `/api/documents/{id}` | Get document metadata and chunk stats |
-| `DELETE` | `/api/documents/{id}` | Delete document, disk file, and associated vector embeddings |
+The evaluation framework measures 6 core quality metrics:
+- **Precision@K**: Proportion of top-K retrieved sources that are relevant.
+- **Recall@K**: Proportion of ground-truth sources retrieved in top-K.
+- **MRR (Mean Reciprocal Rank)**: Reciprocal rank of the first relevant retrieved source.
+- **Answer Relevance**: Semantic/Jaccard similarity between generated answer and ground truth.
+- **Faithfulness**: Fact-checking metric measuring grounding of generated statements in retrieved context.
+- **Citation Correctness**: Verification of cited source documents against ground truth sources.
 
 ---
 
-## 📑 Next Steps (Part 2 Scope)
+## Security & Reliability Controls
 
-- Full text chunking strategies & background ingestion pipeline worker
-- Complete implementation of remaining document loaders (Image, DOCX, PPTX, CSV, XLSX, JSON, Markdown, HTML, Web URL)
-- React + Vite + TypeScript + Tailwind CSS Frontend UI
+- **SSRF Protection**: `WebLoader` blocks internal IP ranges (127.0.0.1, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, AWS metadata IPs) and dangerous protocols.
+- **File Security**: Extension whitelist validation, path traversal prevention (`resolve()` checking), null-byte removal, filename sanitization, and 50MB file size limit.
+- **API Protection**: Rate-limiting middleware (60 reqs/min per IP) and optional API Key headers (`X-API-Key`).
+- **Observability**: Structured JSON logging with automatic redaction of sensitive credentials (`api_key`, `password`, `secret`, `auth_token`).
+
+---
+
+## Testing
+
+Run the full pytest suite:
+```bash
+pytest backend/tests -v
+```
+
+All 35 unit & integration tests verify end-to-end functionality across loaders, chunkers, hybrid retrieval, re-ranking, context budgeting, and API endpoints.

@@ -1,0 +1,26 @@
+[
+    {
+        "id": "tc-001",
+        "question": "What is Transmission Control Protocol (TCP)?",
+        "expected_answer": "TCP is a reliable, connection-oriented transport protocol that ensures ordered, error-checked delivery of stream data between applications over an IP network.",
+        "expected_sources": ["networking_guide.pdf", "tcp_ip_overview.txt"]
+    },
+    {
+        "id": "tc-002",
+        "question": "What are the advantages of TCP compared to UDP?",
+        "expected_answer": "TCP provides reliable data transfer, flow control, congestion control, and sequence ordering, whereas UDP is connectionless and unacknowledged.",
+        "expected_sources": ["networking_guide.pdf"]
+    },
+    {
+        "id": "tc-003",
+        "question": "How does vector store indexing work in RAG systems?",
+        "expected_answer": "Vector store indexing converts text chunks into dense vector embeddings using embedding models and indexes them for fast similarity search using algorithms like HNSW or Flat IP.",
+        "expected_sources": ["rag_architecture.md", "embeddings_spec.pdf"]
+    },
+    {
+        "id": "tc-004",
+        "question": "What is the Lost-in-the-Middle context effect?",
+        "expected_answer": "The Lost-in-the-Middle effect refers to language models paying more attention to context presented at the beginning and end of a prompt rather than information in the middle.",
+        "expected_sources": ["context_engineering.docx"]
+    }
+]

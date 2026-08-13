@@ -30,8 +30,21 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 100
     MAX_FILE_SIZE_MB: int = 50
 
-    # Default embedding provider
+    # Configurable Retrieval & Context Engineering Parameters
+    RETRIEVAL_TOP_K: int = 25
+    RERANK_TOP_K: int = 10
+    CONTEXT_TOKEN_LIMIT: int = 4000
+    DENSE_WEIGHT: float = 0.6
+    LEXICAL_WEIGHT: float = 0.4
+    RELEVANCE_THRESHOLD: float = 0.15
+    DEDUPLICATION_THRESHOLD: float = 0.82
 
+    # API Security Config
+    API_KEY_REQUIRED: bool = False
+    API_KEY: str = "load2ask_secret_key"
+    RATE_LIMIT_PER_MINUTE: int = 60
+
+    # Default embedding provider
     EMBEDDING_PROVIDER: str = "default"  # options: sentence-transformers, openai, mock, default
 
     model_config = SettingsConfigDict(
@@ -43,5 +56,13 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# Anchor SQLite path to project root if relative
+if settings.DATABASE_URL.startswith("sqlite:///./"):
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    db_file = settings.DATABASE_URL.replace("sqlite:///./", "")
+    settings.DATABASE_URL = f"sqlite:///{os.path.join(base_dir, db_file)}"
+
 # Ensure upload directory exists
 os.makedirs(settings.UPLOAD_DIRECTORY, exist_ok=True)
+
+

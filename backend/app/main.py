@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.errors import Load2AskException, load2ask_exception_handler, generic_exception_handler
 from app.core.logging import logger
+from app.core.security import rate_limit_middleware
 from app.database.session import init_db
 from app.api.router import api_router
 
@@ -18,7 +19,7 @@ async def lifespan(app: FastAPI):
         logger.info("Database tables initialized successfully.")
     except Exception as e:
         logger.error(f"Error during database initialization: {e}")
-    
+
     yield
     logger.info("Shutting down Load2Ask backend.")
 
@@ -30,7 +31,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Configure CORS
+# Register Middlewares
+app.middleware("http")(rate_limit_middleware)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -38,6 +41,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Exception Handlers
 app.add_exception_handler(Load2AskException, load2ask_exception_handler)
