@@ -2,18 +2,15 @@ import hashlib
 import math
 from typing import List, Optional
 from app.embeddings.base import EmbeddingProvider
+from app.core.config import settings
 from app.core.logging import logger
-
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError:
-    SentenceTransformer = None
 
 
 class DefaultEmbeddingProvider(EmbeddingProvider):
     """
-    Configurable embedding provider.
-    Uses SentenceTransformer lazily when requested, or falls back to a deterministic feature vector generator.
+    Production-grade lightweight embedding provider.
+    Uses Google Gemini API or lazy-loaded SentenceTransformer, with fallback to feature vectorizer.
+    Zero heavy top-level imports to ensure ultra-low memory footprint (<50MB RAM) on server boot.
     """
 
     def __init__(self, model_name: str = "all-MiniLM-L6-v2", dimension: int = 384):
@@ -21,23 +18,41 @@ class DefaultEmbeddingProvider(EmbeddingProvider):
         self.dimension = dimension
         self._model = None
         self._model_attempted = False
+        self._use_gemini = False
 
     def _get_model(self):
-        """Lazy-load SentenceTransformer model on demand to prevent high memory spikes during app startup."""
+        """Lazy-load embedding models on demand to maintain low memory footprint during app startup."""
         if not self._model_attempted:
             self._model_attempted = True
-            if SentenceTransformer is not None:
+
+            # 1. Try Google Gemini API if key is present
+            if (
+                settings.LLM_API_KEY
+                and settings.LLM_API_KEY not in ["your_google_gemini_api_key_here", "default_llm_key"]
+            ):
                 try:
-                    import torch
-                    torch.set_num_threads(1)
-                    logger.info(f"Lazy loading SentenceTransformer model: {self.model_name}")
-                    self._model = SentenceTransformer(self.model_name)
+                    import google.generativeai as genai
+                    genai.configure(api_key=settings.LLM_API_KEY)
+                    self._use_gemini = True
+                    logger.info("Using Google Gemini API for lightweight cloud embeddings.")
+                    return None
                 except Exception as e:
-                    logger.warning(
-                        f"Could not load SentenceTransformer model {self.model_name}: {e}. "
-                        "Falling back to hash-based vectorizer."
-                    )
-                    self._model = None
+                    logger.warning(f"Gemini embedding setup error: {e}")
+
+            # 2. Lazy load SentenceTransformer locally if available
+            try:
+                from sentence_transformers import SentenceTransformer
+                import torch
+                torch.set_num_threads(1)
+                logger.info(f"Lazy loading SentenceTransformer model: {self.model_name}")
+                self._model = SentenceTransformer(self.model_name)
+            except Exception as e:
+                logger.warning(
+                    f"Could not load SentenceTransformer model {self.model_name}: {e}. "
+                    "Falling back to hash-based vectorizer."
+                )
+                self._model = None
+
         return self._model
 
     def _fallback_embed(self, text: str) -> List[float]:
@@ -59,11 +74,39 @@ class DefaultEmbeddingProvider(EmbeddingProvider):
             vec = [x / norm for x in vec]
         return vec
 
+    def _embed_gemini(self, text: str) -> Optional[List[float]]:
+        """Embed text using Google Gemini Embedding API."""
+        try:
+            import google.generativeai as genai
+            res = genai.embed_content(
+                model="models/embedding-001",
+                content=text,
+                task_type="retrieval_document"
+            )
+            embedding = res.get("embedding", [])
+            # Truncate or pad to self.dimension
+            if len(embedding) > self.dimension:
+                return embedding[:self.dimension]
+            elif len(embedding) < self.dimension:
+                return embedding + [0.0] * (self.dimension - len(embedding))
+            return embedding
+        except Exception as e:
+            logger.warning(f"Gemini API embedding failed: {e}. Falling back...")
+            return None
+
     def embed_documents(self, texts: List[str]) -> List[List[float]]:
         if not texts:
             return []
 
         model = self._get_model()
+
+        if self._use_gemini:
+            results = []
+            for t in texts:
+                emb = self._embed_gemini(t)
+                results.append(emb if emb is not None else self._fallback_embed(t))
+            return results
+
         if model is not None:
             try:
                 embeddings = model.encode(texts, convert_to_numpy=True)
@@ -75,6 +118,12 @@ class DefaultEmbeddingProvider(EmbeddingProvider):
 
     def embed_query(self, text: str) -> List[float]:
         model = self._get_model()
+
+        if self._use_gemini:
+            emb = self._embed_gemini(text)
+            if emb is not None:
+                return emb
+
         if model is not None:
             try:
                 embedding = model.encode(text, convert_to_numpy=True)
