@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # API Keys
     LLM_API_KEY: str = "default_llm_key"
+    GEMINI_API_KEY: Optional[str] = None
     EMBEDDING_API_KEY: str = "default_embedding_key"
 
     # Database
